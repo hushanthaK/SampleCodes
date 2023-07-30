@@ -1,3 +1,4 @@
+### Init Rest API Routes
 ```php
 
 add_action('rest_api_init', function () {
@@ -14,7 +15,11 @@ add_action('rest_api_init', function () {
       'callback' => 'verify_otp_user_callback',
   ));
 });
+```
 
+### User Register Function
+##### API params - username, email, country_code, mobile_number
+```php
 // User register with mobile number
 function register_user_callback($request) {
     $parameters = $request->get_json_params();
@@ -47,8 +52,8 @@ function register_user_callback($request) {
         return new WP_Error('registration_failed', $error_message, array('status' => 400));
     }
 
-    // Store the OTP in user meta data
-    update_user_meta($user_id, 'mobile_number', $mobile_number);
+	// Store the OTP in user meta data
+	update_user_meta($user_id, 'mobile_number', $mobile_number);
 
     // Ths lines requred for digit plugin - if it use
 	  update_user_meta($user_id, 'digits_phone', $country_code.$mobile_number);
@@ -66,105 +71,126 @@ function register_user_callback($request) {
 
     return true;
 }
+```
 
+### User Login Function
+##### API params - country_code, mobile_number
+```php
 // User login with mobile number
 function login_otp_user_callback($request) {
 	$parameters = $request->get_json_params();
-
-  // API params - country_code, mobile_number
-  $mobile_number = sanitize_text_field($parameters['mobile_number']);
+	
+	// API params - country_code, mobile_number
+	$mobile_number = sanitize_text_field($parameters['mobile_number']);
 	$country_code = sanitize_text_field($parameters['country_code']);
 
 	// Check if the mobile number is provided
-  if (empty($mobile_number)) {
-      return new WP_Error('invalid_input', 'Mobile number is required.', array('status' => 400));
-  }
+	if (empty($mobile_number)) {
+	  return new WP_Error('invalid_input', 'Mobile number is required.', array('status' => 400));
+	}
 
-  // Check user exist
+	// Check user exist
 	$user = get_users(array('meta_key' => 'mobile_number', 'meta_value' => $mobile_number));
 	
 	if (!$user) {
-    return new WP_Error('invalid_user', 'Invalid mobile number.', array('status' => 400));
-  }
+		return new WP_Error('invalid_user', 'Invalid mobile number.', array('status' => 400));
+	}
 
 	// Generate and send OTP to the mobile number
-  $otp = generate_otp();
-  send_otp_sms($mobile_number, $otp,$country_code);
+	$otp = generate_otp();
+	send_otp_sms($mobile_number, $otp,$country_code);
 	
 
-  // Get user ID
-  $user_id = $user[0]->ID;
-  //update OTP
+	// Get user ID
+	$user_id = $user[0]->ID;
+	//update OTP
 	update_user_meta($user_id, 'otp', $otp);
-
-  return true;
+	
+	return true;
 }
+```
 
+### OTP Validation Function
+##### API params - mobile_number, otp
+```php
 // Check user OTP is valid
 function verify_otp_user_callback($request) {
 	$parameters = $request->get_json_params();
-
-  // API params - mobile_number, top
-  $mobile_number = sanitize_text_field($parameters['mobile_number']);
-  $otp = sanitize_text_field($parameters['otp']);
 	
-  // Check if the mobile number and OTP are provided
-  if (empty($mobile_number) || empty($otp)) {
-    return new WP_Error('invalid_input', 'Mobile number and OTP are required.', array('status' => 400));
-  }
+	// API params - mobile_number, otp
+	$mobile_number = sanitize_text_field($parameters['mobile_number']);
+	$otp = sanitize_text_field($parameters['otp']);
+	
+	// Check if the mobile number and OTP are provided
+	if (empty($mobile_number) || empty($otp)) {
+		return new WP_Error('invalid_input', 'Mobile number and OTP are required.', array('status' => 400));
+	}
 
-  // Get the user ID based on the mobile number
+	// Get the user ID based on the mobile number
 	$user = get_users(array('meta_key' => 'mobile_number', 'meta_value' => $mobile_number));
-  if (!$user && !$user[0]) {
-    return  new WP_Error('invalid_user', 'Invalid mobile number.', array('status' => 400));
-  }
-  $user_id = $user[0]->ID;
+	if (!$user && !$user[0]) {
+		return  new WP_Error('invalid_user', 'Invalid mobile number.', array('status' => 400));
+	}
+	$user_id = $user[0]->ID;
 
-  // Get saved otp
+	// Get saved otp
 	$saved_otp = get_user_meta($user_id, 'otp', true);
-  // Verify the OTP
-  if ($otp !== $saved_otp) {
-    return new WP_Error('invalid_otp', 'Invalid OTP.', array('status' => 400));
-  }
+	// Verify the OTP
+	if ($otp !== $saved_otp) {
+		return new WP_Error('invalid_otp', 'Invalid OTP.', array('status' => 400));
+	}
 	// Remove the OTP from user meta data after successful verification
-  //delete_user_meta($user_id, 'otp');
+	//delete_user_meta($user_id, 'otp');
 
-  // Generate authentication token for the user
-  $expiration = time() + 365 * DAY_IN_SECONDS;
-  $cookie = wp_generate_auth_cookie($user_id, $expiration, 'logged_in');
-  //$token = wp_generate_auth_cookie($user_id, 86400);
+	// Generate authentication token for the user
+	$expiration = time() + 365 * DAY_IN_SECONDS;
+	$cookie = wp_generate_auth_cookie($user_id, $expiration, 'logged_in');
+	//$token = wp_generate_auth_cookie($user_id, 86400);
 	
 	$response['wp_user_id'] = $user_id;
-    $response['cookie'] = $cookie;
-    $response['user_login'] = $user[0]->user_login;
-    $response['user'] = getResponseUserInfo($user[0]);
-
-    return $response;
+	$response['cookie'] = $cookie;
+	$response['user_login'] = $user[0]->user_login;
+	$response['user'] = getResponseUserInfo($user[0]);
+	
+	return $response;
 }
 
+```
+
+### OTP Generate Function - for 6 Digits
+```php
 // Generate OTP
 function generate_otp() {
-    // Generate a 6-digit random OTP
-    return sprintf("%06d", mt_rand(1, 999999));
+	// Generate a 6-digit random OTP
+	return sprintf("%06d", mt_rand(1, 999999));
 }
 
+```
+
+### Send SMS Function
+##### Implement your own sms gateway
+```php
 function send_otp_sms($mobile_number, $otp, $country_code) {
-    // Code to send SMS with the OTP to the provided mobile number using your preferred SMS service provider
-    // Implement the logic to send the OTP via SMS
-    $api_key = 'bUdGPXVGeUlITkNDSWdhcUlncW0=';
+	// Code to send SMS with the OTP to the provided mobile number using your preferred SMS service provider
+	// Implement the logic to send the OTP via SMS
+	$api_key = 'bUdGPXVGeUlITkNDSWdhcUlncW0=';
 	if (substr($mobile_number, 0, 1) === '0') {
-    	$mobile_number = $country_code . substr($mobile_number, 1);
-    } else {
+		$mobile_number = $country_code . substr($mobile_number, 1);
+	} else {
 		$mobile_number = $country_code.$mobile_number;
 		$url = 'https://sms.ipsova.com/sms/api?action=send-sms&api_key=' . $api_key . '&to=' . $mobile_number . '&from=Quickee&sms=' . 'MSG=Your OTP code is ' . $otp;
 		$response = wp_remote_post($url);
+
 		if (is_wp_error($response)) {
-        	$error_message = $response->get_error_message();
-        	return;
-    	}
+			$error_message = $response->get_error_message();
+			return;
+		}
 	}
 }
+```
 
+### Get Loged User Data Function
+```php
 function getResponseUserInfo($user)
 {
     $shipping = null;
