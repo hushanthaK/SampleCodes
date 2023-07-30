@@ -1,3 +1,4 @@
+### Woocomerce Currency Symbol Change
 ```php
 add_filter('woocommerce_currency_symbol', 'change_existing_currency_symbol', 10, 2);
 
