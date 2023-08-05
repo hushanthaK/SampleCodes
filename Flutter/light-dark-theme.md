@@ -8,20 +8,20 @@
   |--lib
   | |
   | |--provider
-  | | |-theme-provider.dart
-  | | |-splash-provider.dart
+  | | |-theme_provider.dart
+  | | |-splash_provider.dart
   | |
   | |--repository
-  | | |-splash-repo.dart
+  | | |-splash_repo.dart
   | |
   | |--screens
-  | | |-splash-screen.dart
+  | | |-splash_screen.dart
   | |
   | |--theme
-  | | |-dark-theme.dart
-  | | |-light-theme.dart
+  | | |-dark_theme.dart
+  | | |-light_theme.dart
   | |
-  | |-di-container.dart
+  | |-di_container.dart
   | |-main.dart
   |
 </pre>
